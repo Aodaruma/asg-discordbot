@@ -119,16 +119,24 @@ class ScheduleCog(commands.Cog):
         :param channel: channel of event
         :param date: date of event
         :param description: description of event
+        :param time_range: time range of event
         :return: scheduled event
         """
         description = description or ""
 
-        # the event hold on 21:00-23:00 JST
-        # and start_time and end_time must be timezone aware
+        if time_range[0] < 0 or time_range[0] > 23:
+            raise ValueError("time_range[0] must be in range 0-23")
+        if time_range[1] < 0 or time_range[1] > 23:
+            raise ValueError("time_range[1] must be in range 0-23")
+
+        # start_time and end_time must be timezone aware
         # see https://discordpy.readthedocs.io/ja/latest/api.html?highlight=create_scheduled_event#discord.Guild.create_scheduled_event
-        JST = gettz("Asia/Tokyo")
-        start_time = datetime(date.year, date.month, date.day, 21, 0, 0, tzinfo=JST)
-        end_time = datetime(date.year, date.month, date.day, 23, 0, 0, tzinfo=JST)
+        start_time = datetime(
+            date.year, date.month, date.day, time_range[0], 0, 0, tzinfo=gettz(timezone)
+        )
+        end_time = datetime(
+            date.year, date.month, date.day, time_range[1], 0, 0, tzinfo=gettz(timezone)
+        )
 
         return await guild.create_scheduled_event(
             name=name,
