@@ -57,22 +57,27 @@ class ScheduleCog(commands.Cog):
         title: str,
         description: str = "",
         color: discord.Color = discord.Color.blue(),
-        show_author: bool = True,
+        author_text: Optional[str] = None,
+        footer_text: Optional[str] = None,
     ):
         """
         generate embed
         :param title: title of embed
         :param description: description of embed
         :param color: color of embed
+        :param author_text: author text of embed
+        :param footer_text: footer text of embed
         :return: embed
         """
         embed = discord.Embed(title=title, description=description)
         embed.color = color
-        if show_author and self.bot.user:
+        if author_text and self.bot.user:
             embed.set_author(
-                name=self.bot.user.name,
+                name=author_text,
                 icon_url=self.bot.user.display_avatar.url,
             )
+        if footer_text:
+            embed.set_footer(text=footer_text)
         return embed
 
     async def change_presence(self, is_collecting: bool = False):
