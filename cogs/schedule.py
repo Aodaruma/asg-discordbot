@@ -148,6 +148,7 @@ class ScheduleCog(commands.Cog):
         :param scrapbox_url: scrapbox url
         :return: None
         """
+        # -------------------- checking if bot is collecting --------------------
         if self.collecting:
             res_embed = self.generate_embed(
                 title="エラー",
@@ -166,6 +167,7 @@ class ScheduleCog(commands.Cog):
             await interaction.response.send_message(embed=res_embed, ephemeral=True)
             return
 
+        # -------------------- initialize variables --------------------
         self.schedule_range = schedule_range
         self.scrapbox_url = scrapbox_url
         self.collecting = True
@@ -174,6 +176,7 @@ class ScheduleCog(commands.Cog):
             days=self.schedule_collect_range
         )
 
+        # -------------------- generate schedule message and reactions for voting --------------------
         dates = self.generate_schedule_dates()
         res_embed = self.generate_embed(title="以下のリアクションからスケジュールを選択してください。")
         res_embed.add_field(
@@ -190,6 +193,7 @@ class ScheduleCog(commands.Cog):
         for i in range(len(dates)):
             await self.reaction_message.add_reaction(self.reaction_emojis[i])
 
+        # -------------------- wait until voting end --------------------
         await self.change_presence(is_collecting=True)
         await discord.utils.sleep_until(
             # datetime(
@@ -204,10 +208,12 @@ class ScheduleCog(commands.Cog):
             + timedelta(minutes=1)
         )
 
+        # -------------------- voting end --------------------
         self.collecting = False
         await self.change_presence(is_collecting=False)
         self.reaction_message = await self.reaction_message.fetch()
 
+        # -------------------- collecting result --------------------
         reaction_result: List[int] = []
         print(
             self.reaction_message.reactions,
@@ -216,6 +222,7 @@ class ScheduleCog(commands.Cog):
         for r in self.reaction_message.reactions.sort(key=lambda r: self.reaction_emojis.index(r.emoji)):  # type: ignore
             reaction_result.append(r.count - 1)
 
+        # -------------------- display result --------------------
         ans_embed = self.generate_embed(
             title="以下の通りスケジュールが集計されました。",
         )
@@ -232,6 +239,7 @@ class ScheduleCog(commands.Cog):
         await self.reaction_message.edit(embed=ans_embed)
 
         max_reaction_date: datetime = dates[reaction_result.index(max(reaction_result))]
+        # -------------------- create event --------------------
         event = await self.create_event(
             guild=interaction.guild,
             name="スケジュール",
@@ -244,8 +252,6 @@ class ScheduleCog(commands.Cog):
         )
         await interaction.followup.send(embed=ans_embed2, ephemeral=False)
         await interaction.followup.send(event.url)
-
-        # await ctx.send("スケジュールの選択肢を生成しました。リアクションを追加してください。")
 
     @tasks.loop(hours=12)
     async def update_presence(self):
