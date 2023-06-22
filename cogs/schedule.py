@@ -29,17 +29,22 @@ class ScheduleCog(commands.Cog):
         ]
 
     def generate_schedule_dates(
-        self, schedule_range: Optional[int] = None
+        self, schedule_range: Optional[int] = None, timezone: str = "Asia/Tokyo"
     ) -> List[datetime]:
         """
         return list of schedule dates (saturday only)
         :param schedule_range: range of schedule
+        :param timezone: timezone
         :return: list of schedule dates
         """
         if schedule_range is None:
             schedule_range = self.schedule_range
 
-        now = datetime.now()
+        now = (
+            datetime.now()
+            .astimezone(gettz(timezone))
+            .replace(hour=0, minute=0, second=0)
+        )
         dates: List[datetime] = []
         for i in range(self.schedule_range):
             day = now + timedelta(days=i)
