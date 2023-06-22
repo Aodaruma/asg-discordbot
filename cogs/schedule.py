@@ -122,10 +122,12 @@ class ScheduleCog(commands.Cog):
 
         return await guild.create_scheduled_event(
             name=name,
+            description=description,
             channel=channel,
             start_time=start_time,
             end_time=end_time,
-            description=description,
+            privacy_level=discord.PrivacyLevel.guild_only,
+            entity_type=discord.EntityType.voice,
         )
 
     # @commands.command()
