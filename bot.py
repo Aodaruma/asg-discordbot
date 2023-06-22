@@ -5,6 +5,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+# ======================================================================
+
 dotenv.load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 if TOKEN is None:
@@ -16,6 +18,7 @@ intents.reactions = True
 bot = commands.Bot(command_prefix="ld!", intents=intents)
 
 
+# ======================================================================
 async def load_cogs() -> None:
     for file in os.listdir(f"{os.path.realpath(os.path.dirname(__file__))}/cogs"):
         if file.endswith(".py"):
@@ -28,6 +31,9 @@ async def load_cogs() -> None:
                 exception = f"{type(e).__name__}: {e}"
                 print(f"Failed to load extension {extension}\n{exception}")
                 # bot.logger.error(f"Failed to load extension {extension}\n{exception}")
+
+
+# --------------------------------------------------
 
 
 @bot.tree.command(
