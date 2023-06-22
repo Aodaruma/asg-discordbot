@@ -5,10 +5,10 @@ Discord bot for autonomous study group
 # installaion
 
 ```
-$ git clone <repo's git url> && cd asg-discordbot
+$ git clone https://github.com/Aodaruma/asg-discordbot.git && cd asg-discordbot
 $ pipenv sync # requires pipenv (and pyenv)
 $ cp .env.example .env
-$ vi .env # edit .env, overwrite DISCORD_TOKEN= with your bot's token
+$ vi .env # edit .env, overwrite ASG_NAME=, DISCORD_TOKEN=
 $ pipenv run python bot.py
 ```
 
