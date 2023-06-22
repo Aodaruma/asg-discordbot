@@ -112,6 +112,8 @@ class ScheduleCog(commands.Cog):
         channel: discord.VoiceChannel,
         date: datetime,
         description: Optional[str] = None,
+        time_range: Tuple[int, int] = (21, 23),
+        timezone: str = "Asia/Tokyo",
     ) -> discord.ScheduledEvent:
         """
         create scheduled event
