@@ -17,6 +17,7 @@ class ScheduleCog(commands.Cog):
         self.collecting = False
         self.reaction_emojis = []
         self.schedule_collect_range = 7
+        self.time_range: Tuple[int, int] = (21, 23)
         self.collect_start_date: Optional[datetime] = None
         self.collect_end_date: Optional[datetime] = None
 
@@ -196,10 +197,13 @@ class ScheduleCog(commands.Cog):
         self.collect_end_date = self.collect_start_date + timedelta(
             days=self.schedule_collect_range
         )
+        author_text = f"{self.bot.ASG_NAME} 第{event_number}回"  # type: ignore
 
         # -------------------- generate schedule message and reactions for voting --------------------
         dates = self.generate_schedule_dates()
-        res_embed = self.generate_embed(title="以下のリアクションからスケジュールを選択してください。")
+        res_embed = self.generate_embed(
+            title="以下のリアクションからスケジュールを選択してください。", author_text=author_text
+        )
         res_embed.add_field(
             name="日時の候補",
             value="\n".join(
@@ -208,6 +212,10 @@ class ScheduleCog(commands.Cog):
                     for i, d in enumerate(dates)
                 ]
             ),
+        )
+        res_embed.add_field(
+            name="時間",
+            value=f"{self.time_range[0]}:00 - {self.time_range[1]}:00",
         )
         await interaction.response.send_message(embed=res_embed, ephemeral=False)
         self.reaction_message = await interaction.original_response()
@@ -258,6 +266,7 @@ class ScheduleCog(commands.Cog):
         max_reaction_date: datetime = dates[max_reaction_date_index]
         ans_embed = self.generate_embed(
             title="以下の通りスケジュールが集計されました。",
+            author_text=author_text,
         )
         ans_embed.add_field(
             name="スケジュールの集計結果",
@@ -274,16 +283,16 @@ class ScheduleCog(commands.Cog):
         # -------------------- create event --------------------
         event = await self.create_event(
             guild=interaction.guild,
-            name="スケジュール",
+            name=f"{self.bot.ASG_NAME} 第{event_number}回",  # type: ignore
             channel=interaction.guild.voice_channels[0],
             date=max_reaction_date,
-            description=self.scrapbox_url,
+            description=f"scrapbox: {self.scrapbox_url}" if self.scrapbox_url else None,
+            time_range=self.time_range,
         )
         ans_embed2 = self.generate_embed(
-            title=f"次のイベントの日時は **{max_reaction_date.strftime('%m/%d')} {event.start_time.strftime('%H:%M')}{'-'+event.end_time.strftime('%H:%M') if event.end_time is not None else ''}** です。",
+            title=f"次のイベントの日時は **{max_reaction_date.strftime('%m/%d')} {event.start_time.astimezone(gettz(timezone)).strftime('%H:%M')}{'-'+event.end_time.astimezone(gettz(timezone)).strftime('%H:%M') if event.end_time is not None else ''}** です。",
         )
-        await interaction.followup.send(embed=ans_embed2, ephemeral=False)
-        await interaction.followup.send(event.url)
+        await interaction.followup.send(event.url, embed=ans_embed2, ephemeral=False)
 
     @tasks.loop(hours=12)
     async def update_presence(self):
