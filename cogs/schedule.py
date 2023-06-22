@@ -156,13 +156,16 @@ class ScheduleCog(commands.Cog):
     async def schedule(
         self,
         interaction: discord.Interaction,
+        event_number: int,
         schedule_range: int = 60,
+        timezone: str = "Asia/Tokyo",
         scrapbox_url: Optional[str] = None,
     ):
         """
         generate schedule
         :param interaction: interaction
-        :param range: range of schedule
+        :param event_number: number of event
+        :param schedule_range: range of schedule
         :param scrapbox_url: scrapbox url
         :return: None
         """
