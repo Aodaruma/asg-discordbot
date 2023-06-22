@@ -223,6 +223,18 @@ class ScheduleCog(commands.Cog):
             reaction_result.append(r.count - 1)
 
         # -------------------- display result --------------------
+        try:
+            max_reaction_date_index: int = reaction_result.index(max(reaction_result))
+        except ValueError:
+            ans_embed = self.generate_embed(
+                title="エラー",
+                description="内部エラーによりスケジュールの集計に失敗しました。\nお手数をおかけしますが、手動で集計を行ってください。",
+                color=discord.Color.red(),
+            )
+            await interaction.followup.send(embed=ans_embed, ephemeral=False)
+            return
+
+        max_reaction_date: datetime = dates[max_reaction_date_index]
         ans_embed = self.generate_embed(
             title="以下の通りスケジュールが集計されました。",
         )
