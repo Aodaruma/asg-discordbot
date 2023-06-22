@@ -166,7 +166,7 @@ class ScheduleCog(commands.Cog):
         :param scrapbox_url: scrapbox url
         :return: None
         """
-        # -------------------- checking if bot is collecting --------------------
+        # -------------------- checking  --------------------
         if self.collecting:
             res_embed = self.generate_embed(
                 title="エラー",
