@@ -219,7 +219,7 @@ class ScheduleCog(commands.Cog):
             self.reaction_message.reactions,
             type(self.reaction_message.reactions),
         )
-        for r in self.reaction_message.reactions.sort(key=lambda r: self.reaction_emojis.index(r.emoji)):  # type: ignore
+        for r in self.reaction_message.reactions:  # type: ignore
             reaction_result.append(r.count - 1)
 
         # -------------------- display result --------------------
@@ -242,7 +242,7 @@ class ScheduleCog(commands.Cog):
             name="スケジュールの集計結果",
             value="\n".join(
                 [
-                    f"{d}: {reaction_result[i]}人"
+                    f"{self.reaction_emojis[i]} `{d.strftime('%Y-%m-%d')}`: {'**' if i == max_reaction_date_index else ''}{reaction_result[i]}人{'**' if i == max_reaction_date_index else ''} {':eyes:' if i == max_reaction_date_index else ''}"
                     for i, d in enumerate(dates)
                     if reaction_result[i] > 0
                 ]
@@ -250,7 +250,6 @@ class ScheduleCog(commands.Cog):
         )
         await self.reaction_message.edit(embed=ans_embed)
 
-        max_reaction_date: datetime = dates[reaction_result.index(max(reaction_result))]
         # -------------------- create event --------------------
         event = await self.create_event(
             guild=interaction.guild,
