@@ -11,11 +11,16 @@ dotenv.load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 if TOKEN is None:
     raise Exception("DISCORD_TOKEN is not set")
+ASG_NAME = os.getenv("ASG_NAME")
+if ASG_NAME is None:
+    raise Exception("ASG_NAME is not set")
+COMMAND_PREFIX = os.getenv("COMMAND_PREFIX") or "¥"
 
 intents = discord.Intents.default()
 intents.reactions = True
 
-bot = commands.Bot(command_prefix="ld!", intents=intents)
+bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
+bot.ASG_NAME = ASG_NAME  # type: ignore
 
 
 # ======================================================================
