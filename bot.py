@@ -61,5 +61,7 @@ async def on_ready():
         print("------")
 
 
-# asyncio.run(load_cogs())
-bot.run(TOKEN)
+# --------------------------------------------------
+
+if __name__ == "__main__":
+    bot.run(TOKEN)
