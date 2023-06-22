@@ -246,10 +246,10 @@ class ScheduleCog(commands.Cog):
 
         # -------------------- collecting result --------------------
         reaction_result: List[int] = []
-        print(
-            self.reaction_message.reactions,
-            type(self.reaction_message.reactions),
-        )
+        # print(
+        #     self.reaction_message.reactions,
+        #     type(self.reaction_message.reactions),
+        # )
         for r in self.reaction_message.reactions:  # type: ignore
             reaction_result.append(r.count - 1)
 
