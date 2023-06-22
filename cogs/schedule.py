@@ -151,7 +151,7 @@ class ScheduleCog(commands.Cog):
     # @commands.command()
     @app_commands.command(
         name="schedule",
-        description="generate schedule",
+        description="自動で投票を開始し、イベントを作成します。",
     )
     async def schedule(
         self,
