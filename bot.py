@@ -38,7 +38,7 @@ async def load_cogs() -> None:
 
 @bot.tree.command(
     name="stop",
-    description="stop bot",
+    description="stop bot (only bot owner)",
 )
 # is bot owner
 @app_commands.check(lambda interaction: interaction.user.id == bot.owner_id)
