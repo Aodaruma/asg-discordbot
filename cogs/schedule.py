@@ -274,9 +274,9 @@ class ScheduleCog(commands.Cog):
             name="スケジュールの集計結果",
             value="\n".join(
                 [
-                    f"{self.reaction_emojis[i]} `{d.strftime('%Y-%m-%d')}`: {'**' if i == max_reaction_date_index else ''}{reaction_result[i]}人{'**' if i == max_reaction_date_index else ''} {':eyes:' if i == max_reaction_date_index else ''}"
+                    f"{self.reaction_emojis[i]} `{d.strftime('%Y-%m-%d')}`: {'**' if i == max_reaction_date_index else ''}{reaction_result[i]}人{'**' if i == max_reaction_date_index else ''} {'   :eyes:' if i == max_reaction_date_index else ''}"
                     for i, d in enumerate(dates)
-                    if reaction_result[i] > 0
+                    # if reaction_result[i] > 0
                 ]
             ),
         )
