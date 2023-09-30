@@ -14,6 +14,7 @@ if TOKEN is None:
 ASG_NAME = os.getenv("ASG_NAME")
 if ASG_NAME is None:
     raise Exception("ASG_NAME is not set")
+BOT_OWNER_ID = os.getenv("BOT_OWNER_ID")
 COMMAND_PREFIX = os.getenv("COMMAND_PREFIX") or "¥"
 
 intents = discord.Intents.default()
@@ -21,6 +22,10 @@ intents.reactions = True
 
 bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
 bot.ASG_NAME = ASG_NAME  # type: ignore
+if BOT_OWNER_ID is None:
+    BOT_OWNER_ID = bot.owner_id
+else:
+    BOT_OWNER_ID = int(BOT_OWNER_ID)
 
 
 # ======================================================================
