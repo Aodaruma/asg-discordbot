@@ -192,6 +192,7 @@ class ScheduleCog(commands.Cog):
         timezone: str = "Asia/Tokyo",
         filter_type: str = "all",
         website_url: Optional[str] = None,
+        debug_vote: bool = False,
     ):
         """
         generate schedule
@@ -270,10 +271,12 @@ class ScheduleCog(commands.Cog):
             self.schedule_range = schedule_range
         self.website_url = website_url
         self.collect_start_date = datetime.now()
-        self.collect_end_date = (self.collect_start_date + timedelta(
-            days=self.schedule_collect_range
-        )).replace(hour=0, minute=0, second=0)
-        # self.collect_end_date = self.collect_start_date + timedelta(minutes=3)
+        if debug_vote:
+            self.collect_end_date = self.collect_start_date + timedelta(minutes=3)
+        else:
+            self.collect_end_date = (self.collect_start_date + timedelta(
+                days=self.schedule_collect_range
+            )).replace(hour=0, minute=0, second=0)
         author_text = f"{self.bot.ASG_NAME} 第{event_number}回"  # type: ignore
 
         # -------------------- generate schedule message and reactions for voting --------------------
