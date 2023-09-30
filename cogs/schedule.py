@@ -272,7 +272,7 @@ class ScheduleCog(commands.Cog):
         self.website_url = website_url
         self.collect_start_date = datetime.now()
         if debug_vote:
-            self.collect_end_date = self.collect_start_date + timedelta(minutes=3)
+            self.collect_end_date = (self.collect_start_date + timedelta(minutes=3)).replace(second=0)
         else:
             self.collect_end_date = (self.collect_start_date + timedelta(
                 days=self.schedule_collect_range
