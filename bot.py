@@ -61,6 +61,22 @@ async def stop(interaction: discord.Interaction):
     await interaction.response.send_message("Botを終了します。", ephemeral=True)
     await bot.close()
 
+# when error, notify to bot owner
+@bot.event
+async def on_command_error(ctx: commands.Context, error: commands.CommandError):
+    """
+    when error, notify to bot owner
+    :param ctx: context
+    :param error: error
+    :return: None
+    """
+    print(f"エラーが発生しました。\n{error}")
+    # await ctx.send(f"エラーが発生しました。\n{error}")
+    if BOT_OWNER_ID is int:
+        owner_user = bot.get_user(BOT_OWNER_ID)
+        if owner_user is not None:
+            await owner_user.send(f"エラーが発生しました。```\n{error}```")
+
 
 @bot.event
 async def on_ready():
