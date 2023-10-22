@@ -11,6 +11,7 @@ requests = "*"
 num2words = "*"
 python-dateutil = "*"
 jpholiday = "*"
+pytz = "*"
 
 [dev-packages]
 
