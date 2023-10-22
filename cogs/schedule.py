@@ -1,4 +1,3 @@
-from typing import List, Optional, Tuple, Callable
 from typing import Any, Coroutine, List, Literal, Optional, Tuple, Callable
 import discord
 from discord import app_commands
@@ -92,11 +91,16 @@ class ScheduleCog(commands.Cog):
                 self.reaction_emojis.remove(v)
         print("collected reaction_emojis successfully:", self.reaction_emojis)
 
+        self.update_collecting.start()
+
+    def cog_unload(self) -> Coroutine[Any, Any, None]:
+        self.update_collecting.cancel()
+        return super().cog_unload()
+
     def generate_schedule_dates(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        schedule_range: Optional[int] = None,
+        start_date: datetime,
+        end_date: datetime,
         collect_end_date: Optional[datetime] = None,
         filter: Callable[[datetime], bool] = lambda x: True,
         timezone: str = "Asia/Tokyo",
@@ -106,29 +110,21 @@ class ScheduleCog(commands.Cog):
         if end_date is None, return list of schedule dates from start_date to start_date + schedule_range.
         :param start_date: start date
         :param end_date: end date
-        :param schedule_range: range of schedule
         :param timezone: timezone
         :return: list of schedule dates
         """
-        if start_date is None:
-            start_date = datetime.now()
         start_date = start_date.astimezone(gettz(timezone)).replace(
             hour=0, minute=0, second=0
         )
-
-        if end_date is None:
-            if schedule_range is None:
-                schedule_range = self.schedule_range
-        else:
-            end_date = end_date.astimezone(gettz(timezone)).replace(
-                hour=0, minute=0, second=0
-            )
-            schedule_range = (end_date - start_date).days + 1
+        end_date = end_date.astimezone(gettz(timezone)).replace(
+            hour=0, minute=0, second=0
+        )
+        schedule_range = (end_date - start_date).days + 1
 
         if collect_end_date is None:
             collect_end_date = (
                 datetime.now() + timedelta(days=self.DEFAULT_COLLECT_RANGE)
-            ).replace(hour=0, minute=0, second=0)
+            ).replace(hour=0, minute=0, second=0, tzinfo=gettz(timezone))
 
         dates: List[datetime] = []
         for i in range(schedule_range):
@@ -165,10 +161,28 @@ class ScheduleCog(commands.Cog):
             embed.set_footer(text=footer_text)
         return embed
 
+    async def send_error_response(
+        self,
+        error_message: str,
+        interaction: discord.Interaction,
+        ephemeral: bool = True,
+    ):
+        """
+        send error response
+        :param error_message: error message
+        :param interaction: interaction
+        :return: None
+        """
+        res_embed = self.generate_embed(
+            title="エラー",
+            description=error_message,
+            color=discord.Color.red(),
+        )
+        await interaction.response.send_message(embed=res_embed, ephemeral=ephemeral)
+
     async def change_presence(
         self,
-        collect_end_date: Optional[datetime] = None,
-        left_days: Optional[int] = None,
+        collect_end_date: Optional[datetime] = None
     ):
         """
         change presence
@@ -176,11 +190,23 @@ class ScheduleCog(commands.Cog):
         :param left_days: left days
         :return: None
         """
-        if collect_end_date is not None and left_days is not None:
+        if collect_end_date is not None:
+            if collect_end_date.tzinfo is None or collect_end_date.tzinfo.utcoffset(collect_end_date) is None:
+                collect_end_date = collect_end_date.astimezone(gettz(self.DEFAULT_TIME_ZONE))
+            left_timedelta = collect_end_date - datetime.now(tz=gettz(self.DEFAULT_TIME_ZONE))
+            lefttime = ""
+            if left_timedelta.days > 0:
+                lefttime += f"{left_timedelta.days}日"
+            elif left_timedelta.seconds // 3600 > 0:
+                lefttime += f"{left_timedelta.seconds // 3600}時間"
+            elif left_timedelta.seconds % 3600 // 60 > 0:
+                lefttime += f"{left_timedelta.seconds % 3600 // 60}分"
+            else:
+                lefttime += "1分以内"
             await self.bot.change_presence(
                 status=discord.Status.dnd,
                 activity=discord.Activity(
-                    name=f"集計中 (〜{collect_end_date.strftime('%m/%d')}, 残り {left_days} 日)",
+                    name=f"集計中 (〜{collect_end_date.strftime('%m/%d')}, 残り {lefttime})",
                     type=discord.ActivityType.watching,
                 ),
             )
@@ -217,7 +243,7 @@ class ScheduleCog(commands.Cog):
             raise ValueError("time_range[1] must be in range 0-23")
         if time_range[0] >= time_range[1]:
             raise ValueError("time_range[0] must be smaller than time_range[1]")
-        if date < datetime.now():
+        if date < datetime.now(gettz(timezone)):
             raise ValueError("date must be in the future")
 
         # start_time and end_time must be timezone aware
@@ -244,15 +270,26 @@ class ScheduleCog(commands.Cog):
         name="schedule",
         description="自動で投票を開始し、イベントを作成します。",
     )
+    @app_commands.describe(
+        event_number="イベントの回数",
+        start_date="スケジュールの開始日",
+        end_date="スケジュールの終了日",
+        timezone="タイムゾーン",
+        filter_type="日程の種類",
+        website_url="イベントのウェブサイトのURL",
+        time_range_start="イベントの開始時間",
+        time_range_end="イベントの終了時間",
+        debug_vote="デバッグ用の投票",
+    )
+    # @app_commands.guild_only()
     async def schedule(
         self,
         interaction: discord.Interaction,
         event_number: int,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        schedule_range: Optional[int] = None,
+        start_date: str,
+        end_date: str,
         timezone: str = "Asia/Tokyo",
-        filter_type: str = "all",
+        filter_type: Literal["all", "weekday", "weekend", "holydays"] = "holydays",
         website_url: Optional[str] = None,
         time_range_start: int = 21,
         time_range_end: int = 23,
@@ -262,47 +299,29 @@ class ScheduleCog(commands.Cog):
         generate schedule
         :param interaction: interaction
         :param event_number: number of event
-        :param schedule_range: range of schedule
-        :param website_url: website url of event
+        :param start_date: start date
+        :param end_date: end date
+        :param timezone: timezone
+        :param filter_type: filter type
+        :param website_url: website url
+        :param time_range_start: start time of event
+        :param time_range_end: end time of event
+        :param debug_vote: debug vote
+
         :return: None
         """
         # -------------------- checking  --------------------
         for c in self.collecting:
             if c.hooked_message.guild == interaction.guild:
-                res_embed = self.generate_embed(
-                    title="エラー",
-                    description="現在集計中です。しばらくお待ちください。",
-                    color=discord.Color.red(),
-                )
-                await interaction.response.send_message(embed=res_embed, ephemeral=True)
+                await self.send_error_response("現在集計中です。しばらくお待ちください。",interaction)
                 return
 
         if interaction.guild is None:
-            res_embed = self.generate_embed(
-                title="エラー",
-                description="サーバー以外ではこのコマンドは使用できません。",
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=res_embed, ephemeral=True)
-            return
-
-        if schedule_range is not None and end_date is not None:
-            res_embed = self.generate_embed(
-                title="エラー",
-                description="schedule_rangeとend_dateは同時に指定できません。どちらか片方のみを指定できます。",
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=res_embed, ephemeral=True)
+            await self.send_error_response("サーバー以外ではこのコマンドは使用できません。",interaction)
             return
 
         if filter_type not in self.FILTER_TYPE:
-            res_embed = self.generate_embed(
-                title="エラー",
-                description="filter_typeは以下のいずれかを指定してください。\n"
-                + "\n".join(self.FILTER_TYPE.keys()),
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=res_embed, ephemeral=True)
+            await self.send_error_response(f"filter_typeは以下のいずれかを指定してください。\n{', '.join(self.FILTER_TYPE.keys())}",interaction)
             return
 
         start_datetime: Optional[datetime] = None
@@ -311,53 +330,29 @@ class ScheduleCog(commands.Cog):
             try:
                 start_datetime = parse(timestr=start_date)
             except ParserError as e:
-                res_embed = self.generate_embed(
-                    title="エラー",
-                    description="start_dateの形式が不正です。",
-                    color=discord.Color.red(),
-                )
-                await interaction.response.send_message(embed=res_embed, ephemeral=True)
+                await self.send_error_response("start_dateの形式・日付が不正です。",interaction)
                 return
 
         if end_date is not None:
             try:
                 end_datetime = parse(timestr=end_date)
             except ParserError as e:
-                res_embed = self.generate_embed(
-                    title="エラー",
-                    description="end_dateの形式が不正です。",
-                    color=discord.Color.red(),
-                )
-                await interaction.response.send_message(embed=res_embed, ephemeral=True)
+                await self.send_error_response("end_dateの形式・日付が不正です。",interaction)
                 return
+
 
         assert start_datetime is not None and end_datetime is not None
 
         if end_datetime <= start_datetime:
-            res_embed = self.generate_embed(
-                title="エラー",
-                description="end_dateはstart_dateより後の日付を指定してください。",
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=res_embed, ephemeral=True)
+            await self.send_error_response("end_dateはstart_dateより後の日付を指定してください。",interaction)
             return
         elif start_datetime < datetime.now() or end_datetime < datetime.now():
-            res_embed = self.generate_embed(
-                title="エラー",
-                description="start_dateとend_dateは現在時刻より後の日付を指定してください。",
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=res_embed, ephemeral=True)
+            await self.send_error_response("start_dateとend_dateは現在時刻より後の日付を指定してください。",interaction)
             return
         elif start_datetime < datetime.now() + timedelta(
             days=self.DEFAULT_COLLECT_RANGE
         ):
-            res_embed = self.generate_embed(
-                title="エラー",
-                description=f"投票期間とスケジュール期間が被っています。start_dateは現在時刻より{self.DEFAULT_COLLECT_RANGE}日以上後の日付を指定してください。",
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=res_embed, ephemeral=True)
+            await self.send_error_response(f"投票期間とスケジュール期間が被っています。start_dateは現在時刻より{self.DEFAULT_COLLECT_RANGE}日以上後の日付を指定してください。",interaction)
             return
 
         if (
@@ -366,26 +361,14 @@ class ScheduleCog(commands.Cog):
             or time_range_end < 0
             or time_range_end > 23
         ):
-            res_embed = self.generate_embed(
-                title="エラー",
-                description="time_range_startとtime_range_endは0-23の範囲で指定してください。",
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=res_embed, ephemeral=True)
+            await self.send_error_response("time_range_startとtime_range_endは0-23の範囲で指定してください。",interaction)
             return
         elif time_range_start >= time_range_end:
-            res_embed = self.generate_embed(
-                title="エラー",
-                description="time_range_startはtime_range_endより小さい値を指定してください。",
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=res_embed, ephemeral=True)
+            await self.send_error_response("time_range_startはtime_range_endより小さい値を指定してください。",interaction)
             return
         time_range = (time_range_start, time_range_end)
 
         # -------------------- initialize variables --------------------
-        if schedule_range is not None:
-            self.schedule_range = schedule_range
         self.website_url = website_url
         self.collect_start_date = datetime.now()
         if debug_vote:
@@ -402,7 +385,6 @@ class ScheduleCog(commands.Cog):
         dates = self.generate_schedule_dates(
             start_date=start_datetime,
             end_date=end_datetime,
-            schedule_range=schedule_range,
             filter=self.FILTER_TYPE[filter_type],
             timezone=timezone,
         )
@@ -415,13 +397,7 @@ class ScheduleCog(commands.Cog):
             await interaction.response.send_message(embed=res_embed, ephemeral=True)
             return
         elif len(dates) > len(self.reaction_emojis):
-            res_embed = self.generate_embed(
-                title="エラー",
-                description=f"条件に一致する日程が、つけることができる絵文字数より多く存在します。{len(self.reaction_emojis)}個以下にしてください。",
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=res_embed, ephemeral=True)
-            return
+            await self.send_error_response(f"条件に一致する日程が、つけることができる絵文字数より多く存在します。{len(self.reaction_emojis)}個以下にしてください。",interaction)
 
         res_embed = self.generate_embed(
             title="以下のリアクションからスケジュールを選択してください。", author_text=author_text
@@ -430,7 +406,7 @@ class ScheduleCog(commands.Cog):
             name="日時の候補",
             value="\n".join(
                 [
-                    f"{self.reaction_emojis[i]} `{d.strftime('%Y-%m-%d')}`"
+                    f"{self.reaction_emojis[i]} `{d.strftime(self.dateFormat)}`"
                     for i, d in enumerate(dates)
                 ]
             ),
@@ -452,6 +428,7 @@ class ScheduleCog(commands.Cog):
         status = CollectingStatus(
             interaction=interaction,
             hooked_message=reaction_message,
+            event_number=event_number,
             start_date=start_datetime,
             end_date=end_datetime,
             collect_start_date=self.collect_start_date,
@@ -467,18 +444,16 @@ class ScheduleCog(commands.Cog):
         # -------------------- wait until voting end --------------------
         await self.change_presence(
             collect_end_date=self.collect_end_date,
-            left_days=self.DEFAULT_COLLECT_RANGE,
         )
 
-    @tasks.loop(hours=1)
-    async def update_presence(self):
+    @tasks.loop(minutes=1)
+    async def update_collecting(self):
         for c in self.collecting:
             if c.collect_end_date < datetime.now():
                 await self.addUpVotes(c)
             else:
                 await self.change_presence(
                     collect_end_date=c.collect_end_date,
-                    left_days=(c.collect_end_date - datetime.now()).days,
                 )
 
     async def addUpVotes(self, status: CollectingStatus):
@@ -528,7 +503,7 @@ class ScheduleCog(commands.Cog):
         guild = status.interaction.guild
         event = await self.create_event(
             guild=status.interaction.guild,
-            name=f"{self.bot.ASG_NAME} 第{event_number}回",  # type: ignore
+            name=f"{self.bot.ASG_NAME} 第{status.event_number}回",  # type: ignore
             channel=guild.voice_channels[0],
             date=max_reaction_date,
             description=f"website: {self.website_url}" if self.website_url else None,
@@ -613,6 +588,9 @@ class ScheduleCog(commands.Cog):
                             int(field.value.split(":")[0].split("-")[0]),
                             int(field.value.split(":")[1].split("-")[1]),
                         )
+            
+            author_text = embed.author.name or ""
+            event_number = int(author_text.split(" ")[1].split("回")[0])
 
             if len(dates) == 0:
                 res_embed = self.generate_embed(
@@ -630,6 +608,7 @@ class ScheduleCog(commands.Cog):
             status = CollectingStatus(
                 interaction=interaction,
                 hooked_message=msg,
+                event_number=event_number,
                 start_date=dates[0],
                 end_date=dates[-1],
                 collect_start_date=datetime.now(),
@@ -650,31 +629,6 @@ class ScheduleCog(commands.Cog):
             )
             await interaction.response.send_message(embed=res_embed, ephemeral=True)
             return
-
-    # @tasks.loop(hours=168)  # 一週間後に集計結果を表示
-    # async def display_results(self):
-    #     if self.collecting:
-    #         self.collecting = False
-    #         # await self.reaction_message.delete()
-    #         await self.change_presence(is_collecting=False)
-
-    # @display_results.before_loop
-    # async def before_display_results(self):
-    #     await self.bot.wait_until_ready()
-
-    #     while True:
-    #         now = datetime.now()
-    #         if now.weekday() == 5:  # 土曜日に集計結果表示タスクを開始
-    #             delta = timedelta(days=7)
-    #             next_saturday = datetime(now.year, now.month, now.day) + delta
-    #             next_saturday = next_saturday.replace(hour=12, minute=0, second=0)
-    #             break
-    #         else:
-    #             now += timedelta(days=1)
-
-    #     await discord.utils.sleep_until(next_saturday)
-    #     self.display_results.start()
-
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(ScheduleCog(bot))
