@@ -20,6 +20,7 @@ class CollectingStatus(object):
         self,
         interaction: discord.Interaction,
         hooked_message: discord.Message,
+        event_number: int,
         start_date: datetime,
         end_date: datetime,
         collect_start_date: datetime,
@@ -32,6 +33,7 @@ class CollectingStatus(object):
     ):
         self.interaction = interaction
         self.hooked_message = hooked_message
+        self.event_number = event_number
         self.start_date = start_date
         self.end_date = end_date
         self.author_text = author_text
