@@ -66,6 +66,7 @@ class ScheduleCog(commands.Cog):
     DEFAULT_SCHEDULE_RANGE: int = 60
     DEFAULT_TIME_ZONE: str = "Asia/Tokyo"
     dateFormat: str = "%Y/%m/%d(%a)"
+    MAX_DISCORD_EMOJI_NUM: int = 20
 
     def __init__(self, bot: commands.Bot):
         locale.setlocale(locale.LC_TIME, "ja_JP.UTF-8")
@@ -84,6 +85,7 @@ class ScheduleCog(commands.Cog):
         #### emoji lib does not support regional indicator emojis, so use chr() instead
         regioanl_indicator_a = "\U0001F1E6"
         self.reaction_emojis += [chr(ord(regioanl_indicator_a) + i) for i in range(26)]
+        self.reaction_emojis = self.reaction_emojis[: self.MAX_DISCORD_EMOJI_NUM]
 
         for v in self.reaction_emojis:
             if v == "":
